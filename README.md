@@ -32,6 +32,28 @@ http://127.0.0.1:4173/?name=Guest
 
 Se o servidor nao estiver rodando, o cliente cai automaticamente para uma sessao local single-player.
 
+## Deploy no Render
+
+O projeto esta preparado para um unico Web Service no Render, servindo:
+
+- frontend estatico a partir de `dist/`
+- servidor autoritativo do jogo
+- WebSocket em `/ws`
+
+Arquivos relevantes:
+
+- [render.yaml](/Users/arthurborges/projects/advent/render.yaml)
+- [server.ts](/Users/arthurborges/projects/advent/server/server.ts)
+
+Fluxo esperado no Render:
+
+1. Conectar o repositorio
+2. Criar o servico via Blueprint ou usando o `render.yaml`
+3. Build command: `npm install && npm run build`
+4. Start command: `npm run start`
+
+O servidor expoe `GET /healthz` para health check.
+
 Build de producao:
 
 ```bash

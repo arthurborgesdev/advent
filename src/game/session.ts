@@ -9,6 +9,7 @@ import type {
 import { GameSimulation } from "./simulation";
 
 const REMOTE_PORT = 2567;
+const REMOTE_PATH = "/ws";
 
 export class LocalSession implements SessionTransport {
   private readonly simulation = new GameSimulation();
@@ -151,7 +152,14 @@ function buildServerUrl() {
   const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
   const host = window.location.hostname || "127.0.0.1";
   const name = params.get("name") ?? randomName();
-  return `${protocol}//${host}:${REMOTE_PORT}/?name=${encodeURIComponent(name)}`;
+  const port =
+    window.location.port === String(REMOTE_PORT) || (window.location.port === "" && host !== "127.0.0.1")
+      ? window.location.port
+      : host === "127.0.0.1" || host === "localhost"
+        ? String(REMOTE_PORT)
+        : window.location.port;
+  const authority = port ? `${host}:${port}` : host;
+  return `${protocol}//${authority}${REMOTE_PATH}?name=${encodeURIComponent(name)}`;
 }
 
 function randomName() {

@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: advent
+    runtime: node
+    plan: free
+    region: virginia
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
