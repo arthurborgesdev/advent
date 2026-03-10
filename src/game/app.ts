@@ -2,12 +2,12 @@ import { GAME_HEIGHT, GAME_WIDTH } from "./config";
 import { InputController } from "./input";
 import type { ClientCommand } from "./protocol";
 import { GameRenderer, type UIState } from "./render";
-import { LocalSession } from "./session";
+import { AutoSession } from "./session";
 
 export class GameApp {
   private readonly input: InputController;
   private readonly renderer: GameRenderer;
-  private readonly session = new LocalSession();
+  private readonly session = new AutoSession();
   private readonly ui: UIState = {
     inventoryOpen: false,
     craftOpen: false,
@@ -29,6 +29,7 @@ export class GameApp {
   destroy() {
     cancelAnimationFrame(this.raf);
     this.input.dispose();
+    this.session.dispose();
   }
 
   private frame = (time: number) => {

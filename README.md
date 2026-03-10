@@ -1,6 +1,6 @@
 # Advent
 
-Primeira iteracao de um dungeon crawler 2D em TypeScript para browser, com engine propria em canvas e arquitetura preparada para evoluir para multiplayer.
+Dungeon crawler 2D em TypeScript para browser, com engine propria em canvas, servidor WebSocket local para multiplayer e arquitetura autoritativa de simulacao.
 
 ## Rodar
 
@@ -8,6 +8,29 @@ Primeira iteracao de um dungeon crawler 2D em TypeScript para browser, com engin
 npm install
 npm run dev
 ```
+
+## Multiplayer local
+
+Em um terminal:
+
+```bash
+npm run server
+```
+
+Em outro:
+
+```bash
+npm run dev
+```
+
+Abra duas abas ou janelas no navegador. Para diferenciar nomes, voce pode usar:
+
+```text
+http://127.0.0.1:4173/?name=Arthur
+http://127.0.0.1:4173/?name=Guest
+```
+
+Se o servidor nao estiver rodando, o cliente cai automaticamente para uma sessao local single-player.
 
 Build de producao:
 
@@ -31,6 +54,12 @@ npm run build
 - Mundo aberto procedural em preto e branco
 - Dungeon procedural com entrada no mapa
 - Combate em tempo real com espada e magia
-- Inimigos, drops, recursos, XP e level up
+- Multiplayer online/local via WebSocket com estado autoritativo no servidor
+- Inimigos com comportamentos distintos:
+  - `slime`: vagueia e persegue quando voce entra no raio
+  - `shade`: sentinela que so ativa quando voce se aproxima
+  - `stalker`: patrulha e circunda o alvo quando engaja
+  - `wisp`: orbita e dispara projeteis
+- Drops, recursos, XP e level up
 - Crafting de consumiveis e upgrades da espada
-- Camada de sessao local separada da simulacao para facilitar migracao para multiplayer
+- Fallback local single-player quando o servidor nao esta disponivel

@@ -12,10 +12,12 @@ export type TileKind =
   | "void";
 
 export type WorldMode = "overworld" | "dungeon";
+export type SessionConnection = "local" | "connecting" | "online" | "offline";
 
 export type ResourceKind = "wood" | "ore" | "essence";
 export type InventoryItem = ResourceKind | "potion" | "ether";
-export type EnemyKind = "slime" | "shade";
+export type EnemyKind = "slime" | "shade" | "stalker" | "wisp";
+export type EnemyBehavior = "wander" | "sentry" | "patrol" | "orbit";
 export type ProjectileKind = "bolt";
 
 export type PlayerIntent = {
@@ -32,6 +34,11 @@ export type ClientCommand =
   | { type: "use-item"; itemId: InventoryItem }
   | { type: "respawn" };
 
+export type ClientPacket = {
+  type: "command";
+  command: ClientCommand;
+};
+
 export type MessageEntry = {
   id: string;
   text: string;
@@ -40,6 +47,7 @@ export type MessageEntry = {
 
 export type PlayerSnapshot = {
   id: string;
+  name: string;
   x: number;
   y: number;
   hp: number;
@@ -61,11 +69,13 @@ export type PlayerSnapshot = {
 export type EnemySnapshot = {
   id: string;
   kind: EnemyKind;
+  behavior: EnemyBehavior;
   x: number;
   y: number;
   hp: number;
   maxHp: number;
   flash: number;
+  aggro: boolean;
 };
 
 export type ProjectileSnapshot = {
@@ -112,9 +122,13 @@ export type DungeonSnapshot = {
 export type ServerSnapshot = {
   tick: number;
   seed: number;
+  connection: SessionConnection;
+  areaId: string;
   mode: WorldMode;
+  onlinePlayers: number;
   playerId: string;
   player: PlayerSnapshot;
+  players: PlayerSnapshot[];
   enemies: EnemySnapshot[];
   projectiles: ProjectileSnapshot[];
   pickups: PickupSnapshot[];
@@ -122,6 +136,11 @@ export type ServerSnapshot = {
   attackEffects: AttackEffectSnapshot[];
   dungeon: DungeonSnapshot | null;
   messages: MessageEntry[];
+};
+
+export type ServerPacket = {
+  type: "snapshot";
+  snapshot: ServerSnapshot;
 };
 
 export type Recipe = {
@@ -136,4 +155,5 @@ export interface SessionTransport {
   update(dt: number): void;
   send(command: ClientCommand): void;
   getSnapshot(): ServerSnapshot;
+  dispose(): void;
 }

@@ -1,6 +1,6 @@
-import { GAME_HEIGHT, GAME_WIDTH, TILE_SIZE, CAMERA_LERP } from "./config";
+import { CAMERA_LERP, GAME_HEIGHT, GAME_WIDTH, TILE_SIZE } from "./config";
 import { ITEM_LABELS, RECIPES } from "./data";
-import type { InventoryItem, ServerSnapshot } from "./protocol";
+import type { EnemySnapshot, InventoryItem, PlayerSnapshot, ServerSnapshot } from "./protocol";
 import { getOverworldTile, worldToTile } from "./worldgen";
 
 export type UIState = {
@@ -43,8 +43,8 @@ export class GameRenderer {
     this.drawPickups(snapshot);
     this.drawProjectiles(snapshot);
     this.drawAttackEffects(snapshot);
+    this.drawPlayers(snapshot);
     this.drawEnemies(snapshot);
-    this.drawPlayer(snapshot);
     this.drawHud(snapshot, ui, buttons, mouse);
     return buttons;
   }
@@ -169,45 +169,75 @@ export class GameRenderer {
     }
   }
 
-  private drawEnemies(snapshot: ServerSnapshot) {
-    for (const enemy of snapshot.enemies) {
-      const pos = this.toScreen(enemy.x, enemy.y);
-      this.ctx.fillStyle = enemy.flash > 0 ? "#fff" : enemy.kind === "shade" ? "#c4c4c4" : "#9f9f9f";
-      if (enemy.kind === "slime") {
-        this.ctx.fillRect(pos.x - 6, pos.y - 4, 12, 8);
-      } else {
-        this.ctx.fillRect(pos.x - 5, pos.y - 6, 10, 12);
-        this.ctx.fillStyle = "#000";
-        this.ctx.fillRect(pos.x - 2, pos.y - 2, 1, 1);
-        this.ctx.fillRect(pos.x + 1, pos.y - 2, 1, 1);
-      }
-      this.ctx.fillStyle = "#fff";
-      this.ctx.fillRect(pos.x - 8, pos.y - 12, 16, 2);
-      this.ctx.fillStyle = "#000";
-      this.ctx.fillRect(pos.x - 8, pos.y - 12, 16, 2);
-      this.ctx.fillStyle = "#fff";
-      this.ctx.fillRect(pos.x - 8, pos.y - 12, (enemy.hp / enemy.maxHp) * 16, 2);
+  private drawPlayers(snapshot: ServerSnapshot) {
+    const remotePlayers = snapshot.players.filter((player) => player.id !== snapshot.playerId);
+    for (const player of remotePlayers) {
+      this.drawPlayerBody(player, false);
     }
+    this.drawPlayerBody(snapshot.player, true);
   }
 
-  private drawPlayer(snapshot: ServerSnapshot) {
-    const pos = this.toScreen(snapshot.player.x, snapshot.player.y);
-    this.ctx.fillStyle = snapshot.player.alive ? "#fff" : "#888";
+  private drawPlayerBody(player: PlayerSnapshot, local: boolean) {
+    const pos = this.toScreen(player.x, player.y);
+    this.ctx.fillStyle = !player.alive ? "#888" : local ? "#fff" : "#bdbdbd";
     this.ctx.fillRect(pos.x - 5, pos.y - 6, 10, 12);
+    if (!local) {
+      this.ctx.strokeStyle = "#fff";
+      this.ctx.strokeRect(pos.x - 5.5, pos.y - 6.5, 11, 13);
+    }
     this.ctx.fillStyle = "#000";
     this.ctx.fillRect(pos.x - 2, pos.y - 2, 1, 1);
     this.ctx.fillRect(pos.x + 1, pos.y - 2, 1, 1);
-
     const hand =
-      snapshot.player.facing === "left"
+      player.facing === "left"
         ? { x: -8, y: 1 }
-        : snapshot.player.facing === "right"
+        : player.facing === "right"
           ? { x: 8, y: 1 }
-          : snapshot.player.facing === "up"
+          : player.facing === "up"
             ? { x: 0, y: -9 }
             : { x: 0, y: 9 };
-    this.ctx.fillStyle = "#d9d9d9";
+    this.ctx.fillStyle = local ? "#d9d9d9" : "#9d9d9d";
     this.ctx.fillRect(pos.x + hand.x - 2, pos.y + hand.y - 2, 4, 4);
+    this.ctx.fillStyle = "#fff";
+    this.ctx.fillText(player.name, pos.x - player.name.length * 3, pos.y - 20);
+  }
+
+  private drawEnemies(snapshot: ServerSnapshot) {
+    for (const enemy of snapshot.enemies) {
+      this.drawEnemy(enemy);
+    }
+  }
+
+  private drawEnemy(enemy: EnemySnapshot) {
+    const pos = this.toScreen(enemy.x, enemy.y);
+    this.ctx.fillStyle = enemy.flash > 0 ? "#fff" : enemy.aggro ? "#efefef" : "#9f9f9f";
+    if (enemy.kind === "slime") {
+      this.ctx.fillRect(pos.x - 6, pos.y - 4, 12, 8);
+    } else if (enemy.kind === "shade") {
+      this.ctx.fillRect(pos.x - 5, pos.y - 6, 10, 12);
+      this.ctx.fillStyle = "#000";
+      this.ctx.fillRect(pos.x - 2, pos.y - 2, 1, 1);
+      this.ctx.fillRect(pos.x + 1, pos.y - 2, 1, 1);
+    } else if (enemy.kind === "stalker") {
+      this.ctx.fillRect(pos.x - 7, pos.y - 5, 14, 10);
+      this.ctx.fillStyle = "#000";
+      this.ctx.fillRect(pos.x - 5, pos.y - 3, 2, 2);
+      this.ctx.fillRect(pos.x + 3, pos.y - 3, 2, 2);
+    } else {
+      this.ctx.beginPath();
+      this.ctx.moveTo(pos.x, pos.y - 7);
+      this.ctx.lineTo(pos.x + 7, pos.y);
+      this.ctx.lineTo(pos.x, pos.y + 7);
+      this.ctx.lineTo(pos.x - 7, pos.y);
+      this.ctx.closePath();
+      this.ctx.fill();
+    }
+    this.ctx.fillStyle = "#fff";
+    this.ctx.fillRect(pos.x - 8, pos.y - 12, 16, 2);
+    this.ctx.fillStyle = "#000";
+    this.ctx.fillRect(pos.x - 8, pos.y - 12, 16, 2);
+    this.ctx.fillStyle = "#fff";
+    this.ctx.fillRect(pos.x - 8, pos.y - 12, (enemy.hp / enemy.maxHp) * 16, 2);
   }
 
   private drawHud(
@@ -217,9 +247,9 @@ export class GameRenderer {
     mouse: { x: number; y: number },
   ) {
     this.ctx.fillStyle = "rgba(0, 0, 0, 0.82)";
-    this.ctx.fillRect(12, 12, 310, 100);
+    this.ctx.fillRect(12, 12, 330, 108);
     this.ctx.strokeStyle = "#fff";
-    this.ctx.strokeRect(12.5, 12.5, 310, 100);
+    this.ctx.strokeRect(12.5, 12.5, 330, 108);
 
     this.drawBar(24, 26, 160, 12, snapshot.player.hp / snapshot.player.maxHp, "HP");
     this.drawBar(24, 46, 160, 12, snapshot.player.mana / snapshot.player.maxMana, "MP");
@@ -229,16 +259,19 @@ export class GameRenderer {
     this.ctx.fillText(`LV ${snapshot.player.level}`, 200, 26);
     this.ctx.fillText(`Sword ${snapshot.player.weaponTier}`, 200, 46);
     this.ctx.fillText(snapshot.mode === "overworld" ? "Overworld" : `Dungeon ${snapshot.dungeon?.key ?? ""}`, 200, 66);
+    this.ctx.fillText(`${snapshot.connection.toUpperCase()}  P:${snapshot.onlinePlayers}`, 200, 86);
 
     this.ctx.fillStyle = "rgba(0, 0, 0, 0.82)";
-    this.ctx.fillRect(GAME_WIDTH - 272, 12, 248, 118);
+    this.ctx.fillRect(GAME_WIDTH - 280, 12, 256, 132);
     this.ctx.strokeStyle = "#fff";
-    this.ctx.strokeRect(GAME_WIDTH - 271.5, 12.5, 248, 118);
+    this.ctx.strokeRect(GAME_WIDTH - 279.5, 12.5, 256, 132);
     this.ctx.fillStyle = "#fff";
-    this.ctx.fillText("WASD move  SPACE sword  F magic", GAME_WIDTH - 260, 24);
-    this.ctx.fillText("E interact  I inventory  C crafting", GAME_WIDTH - 260, 42);
-    this.ctx.fillText("Mouse clicks buttons in menus", GAME_WIDTH - 260, 60);
-    this.ctx.fillText("R respawn when dead", GAME_WIDTH - 260, 78);
+    this.ctx.fillText("WASD move  SPACE sword  F magic", GAME_WIDTH - 266, 24);
+    this.ctx.fillText("E interact  I inventory  C crafting", GAME_WIDTH - 266, 42);
+    this.ctx.fillText("R respawn when dead", GAME_WIDTH - 266, 60);
+    this.ctx.fillText("Run server for multiplayer on port 2567", GAME_WIDTH - 266, 78);
+    this.ctx.fillText("Slimes wander. Shades ambush.", GAME_WIDTH - 266, 96);
+    this.ctx.fillText("Stalkers patrol. Wisps orbit and shoot.", GAME_WIDTH - 266, 114);
 
     const inventoryTab = this.drawButton(buttons, "toggle-inventory", 24, GAME_HEIGHT - 52, 122, 28, `[I] Inventory`, mouse);
     const craftTab = this.drawButton(buttons, "toggle-craft", 154, GAME_HEIGHT - 52, 122, 28, `[C] Crafting`, mouse);
@@ -258,12 +291,18 @@ export class GameRenderer {
     let messageY = GAME_HEIGHT - 140;
     for (const message of snapshot.messages) {
       this.ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-      this.ctx.fillRect(24, messageY, 310, 18);
+      this.ctx.fillRect(24, messageY, 360, 18);
       this.ctx.strokeStyle = "#fff";
-      this.ctx.strokeRect(24.5, messageY + 0.5, 310, 18);
+      this.ctx.strokeRect(24.5, messageY + 0.5, 360, 18);
       this.ctx.fillStyle = "#fff";
       this.ctx.fillText(message.text, 32, messageY + 3);
       messageY -= 22;
+    }
+
+    if (snapshot.connection === "connecting") {
+      this.drawCenterBanner("Connecting to multiplayer server...");
+    } else if (snapshot.connection === "offline") {
+      this.drawCenterBanner("Server disconnected. Refresh or keep exploring offline state.");
     }
 
     if (!snapshot.player.alive) {
@@ -283,7 +322,7 @@ export class GameRenderer {
     mouse: { x: number; y: number },
   ) {
     const x = GAME_WIDTH - 280;
-    const y = 148;
+    const y = 160;
     this.ctx.fillStyle = "rgba(0, 0, 0, 0.92)";
     this.ctx.fillRect(x, y, 248, 188);
     this.ctx.strokeStyle = "#fff";
@@ -312,7 +351,7 @@ export class GameRenderer {
     mouse: { x: number; y: number },
   ) {
     const x = 24;
-    const y = 126;
+    const y = 132;
     this.ctx.fillStyle = "rgba(0, 0, 0, 0.92)";
     this.ctx.fillRect(x, y, 330, 220);
     this.ctx.strokeStyle = "#fff";
@@ -325,24 +364,18 @@ export class GameRenderer {
       const cost = Object.entries(recipe.cost)
         .map(([itemId, amount]) => `${amount} ${ITEM_LABELS[itemId as InventoryItem]}`)
         .join(", ");
-      const owned = Object.entries(recipe.cost).every(([itemId, amount]) => snapshot.player.inventory[itemId as InventoryItem] >= amount);
+      const owned = Object.entries(recipe.cost).every(
+        ([itemId, amount]) => snapshot.player.inventory[itemId as InventoryItem] >= amount,
+      );
       this.ctx.fillStyle = "#fff";
       this.ctx.fillText(recipe.name, x + 12, rowY);
       this.ctx.fillStyle = "#bdbdbd";
       this.ctx.fillText(cost, x + 12, rowY + 12);
       this.ctx.fillStyle = "#9f9f9f";
       this.ctx.fillText(recipe.description, x + 12, rowY + 24);
-      hover = this.drawButton(
-        buttons,
-        `craft-${recipe.id}`,
-        x + 232,
-        rowY + 8,
-        82,
-        24,
-        owned ? "Craft" : "Need",
-        mouse,
-        owned,
-      ) || hover;
+      hover =
+        this.drawButton(buttons, `craft-${recipe.id}`, x + 232, rowY + 8, 82, 24, owned ? "Craft" : "Need", mouse, owned) ||
+        hover;
       rowY += 48;
     }
     if (hover) {
@@ -381,6 +414,15 @@ export class GameRenderer {
     this.ctx.fillRect(x + 1, y + 1, Math.max(0, (w - 2) * fill), h - 2);
     this.ctx.fillStyle = "#000";
     this.ctx.fillText(label, x + 6, y + 1);
+  }
+
+  private drawCenterBanner(text: string) {
+    this.ctx.fillStyle = "rgba(0, 0, 0, 0.86)";
+    this.ctx.fillRect(230, 278, 500, 48);
+    this.ctx.strokeStyle = "#fff";
+    this.ctx.strokeRect(230.5, 278.5, 500, 48);
+    this.ctx.fillStyle = "#fff";
+    this.ctx.fillText(text, 260, 294);
   }
 
   private toScreen(x: number, y: number) {
